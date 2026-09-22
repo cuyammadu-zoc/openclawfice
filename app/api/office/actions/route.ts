@@ -288,7 +288,7 @@ function readArchive(offset: number, limit: number): { items: any[]; total: numb
 }
 
 export async function GET(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   const url = new URL(request.url);
@@ -329,7 +329,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   // Require authentication for POST operations
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   ensureStatusDir();

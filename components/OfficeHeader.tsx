@@ -200,9 +200,8 @@ export function OfficeHeader({
           onClick={async () => {
             sfx.play('click');
             try {
-              const token = localStorage.getItem('openclawfice_token');
               const res = await fetch('/api/export/workflow', {
-                headers: token ? { 'X-OpenClawfice-Token': token } : {},
+                credentials: 'include',
               });
               if (!res.ok) throw new Error('Export failed');
               const blob = await res.blob();

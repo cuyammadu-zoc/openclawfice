@@ -8,7 +8,7 @@ const STATUS_DIR = join(homedir(), '.openclaw', '.status');
 const MEETING_FILE = join(STATUS_DIR, 'meeting.json');
 
 export async function GET(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
  * Body: { agent: string, message: string, round?: number }
  */
 export async function POST(req: Request) {
-  const authError = requireAuth(req);
+  const authError = await requireAuth(req);
   if (authError) return authError;
 
   try {
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
  * DELETE — End the active meeting
  */
 export async function DELETE(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {

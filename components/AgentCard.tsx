@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import type { Agent, Accomplishment } from './types';
+import { OUTFITS, parseOutfit } from '../config/outfits';
 
 /**
  * Pokemon/Trading Card-style agent card.
@@ -15,6 +16,10 @@ interface AgentCardProps {
   agent: Agent;
   accomplishments: Accomplishment[];
   onClose: () => void;
+}
+
+export function getAgentCardPortraitSource(agent: Partial<Pick<Agent, 'avatarUrl' | 'emoji'>>): string {
+  return agent.avatarUrl || agent.emoji || '🤖';
 }
 
 // Rarity based on level
@@ -119,10 +124,37 @@ export function AgentCard({ agent, accomplishments, onClose }: AgentCardProps) {
     ctx.textAlign = 'left';
     ctx.fillText(rarity.label, 40, 52);
 
-    // Agent emoji (big)
     ctx.font = '64px serif';
     ctx.textAlign = 'center';
-    ctx.fillText(agent.emoji || '🤖', W / 2, 140);
+    ctx.fillText(getAgentCardPortraitSource(agent), W / 2, 140);
+
+    if (agent.avatarUrl) {
+      const avatar = new Image();
+      avatar.crossOrigin = 'anonymous';
+      avatar.onload = () => {
+        ctx.save();
+        roundRect(ctx, W / 2 - 48, 72, 96, 96, 16);
+        ctx.clip();
+        ctx.drawImage(avatar, W / 2 - 48, 72, 96, 96);
+        ctx.restore();
+        setImageUrl(canvas.toDataURL('image/png'));
+      };
+      avatar.src = agent.avatarUrl;
+    }
+
+    const outfit = agent.outfit ? parseOutfit(agent.outfit) : null;
+    if (outfit) {
+      const outfitConfig = OUTFITS[outfit];
+      ctx.fillStyle = outfitConfig.themeColor;
+      roundRect(ctx, 40, 72, 150, 24, 6);
+      ctx.fill();
+      ctx.strokeStyle = outfitConfig.borderColor;
+      ctx.stroke();
+      ctx.font = '9px "Press Start 2P", monospace';
+      ctx.fillStyle = outfitConfig.borderColor;
+      ctx.textAlign = 'left';
+      ctx.fillText(outfitConfig.title.toUpperCase(), 50, 88);
+    }
 
     // Name
     ctx.font = 'bold 28px "Press Start 2P", monospace';

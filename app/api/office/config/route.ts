@@ -39,7 +39,7 @@ function readConfig(): any {
 }
 
 export async function GET(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   return NextResponse.json(readConfig());
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
  * POST — update config fields (deep-merged into existing config)
  */
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {

@@ -368,6 +368,9 @@ export function sendToAgent(agentId: string, message: string): void {
     detached: true,
     stdio: 'ignore',
   });
+  proc.on('error', (error) => {
+    console.error(`[autowork-ticker] Failed to send work to ${agentId}:`, error.message);
+  });
   proc.unref();
 }
 

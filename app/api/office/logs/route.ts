@@ -98,7 +98,7 @@ function parseTranscriptEntries(lines: string[]): LogEntry[] {
 }
 
 export async function GET(req: Request) {
-  const authError = requireAuth(req);
+  const authError = await requireAuth(req);
   if (authError) return authError;
 
   const { searchParams } = new URL(req.url);

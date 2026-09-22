@@ -15,9 +15,26 @@
   "agents": {
     "main": {
       "color": "#6366f1",
+      "avatarUrl": "https://example.com/your-agent-avatar.png",
+      "outfit": "army",
       "skinColor": "#c8a87c",
       "shirtColor": "#6366f1",
       "hairColor": "#1a1a2e"
+    },
+    "navy-example": {
+      "outfit": "navy"
+    },
+    "air-force-example": {
+      "outfit": "air_force"
+    },
+    "marines-example": {
+      "outfit": "marines"
+    },
+    "coast-guard-example": {
+      "outfit": "coast_guard"
+    },
+    "space-force-example": {
+      "outfit": "space_force"
     }
   },
   "owner": {

@@ -5,7 +5,7 @@ import { findFile, findRelatedFile, getAgentWorkspaces } from '../../../../lib/f
 import { requireAuth } from '../../../../lib/auth';
 
 export async function GET(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   const url = new URL(request.url);
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {

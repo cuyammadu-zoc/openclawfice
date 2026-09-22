@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { requireAuth } from '../../../lib/auth';
+import { getAuthenticatedUser, requireAuth } from '../../../lib/auth';
+import { parseOutfit } from '../../../config/outfits';
+import { readControlState } from '../../../lib/office-control';
+import { DEFAULT_CAPABILITIES } from '../../../config/capabilities';
+import { listAvatars } from '../../../lib/avatar-store';
 
 const OPENCLAW_DIR = join(homedir(), '.openclaw');
 const OPENCLAW_CONFIG = join(OPENCLAW_DIR, 'openclaw.json');
@@ -22,10 +26,13 @@ interface SessionInfo {
 
 interface AgentConfig {
   id: string;
+  userId?: string;
   name: string;
   role?: string;
   emoji?: string;
   color?: string;
+  avatarUrl?: string;
+  outfit?: ReturnType<typeof parseOutfit>;
   skinColor?: string;
   shirtColor?: string;
   hairColor?: string;
@@ -121,7 +128,7 @@ function hashColor(str: string): string {
  * Pulls display names from each agent's IDENTITY.md.
  * Merges optional overrides from openclawfice.config.json.
  */
-function discoverAgents(): AgentConfig[] {
+function discoverAgents(userId?: string): AgentConfig[] {
   try {
     if (!existsSync(OPENCLAW_CONFIG)) return [];
     const config = JSON.parse(readFileSync(OPENCLAW_CONFIG, 'utf-8'));
@@ -151,10 +158,13 @@ function discoverAgents(): AgentConfig[] {
       
       return {
         id: agent.id,
+        userId,
         name,
         role,
         emoji,
         color: override.color || hashColor(name),
+        avatarUrl: override.avatarUrl || agent.avatarUrl,
+        outfit: parseOutfit(override.outfit || agent.outfit),
         skinColor: override.skinColor,
         shirtColor: override.shirtColor || override.color || hashColor(name),
         hairColor: override.hairColor,
@@ -183,10 +193,13 @@ function discoverAgents(): AgentConfig[] {
     if (ownerName) {
       agents.unshift({
         id: '_owner',
+        userId,
         name: ownerName,
         role: ownerConfig.role || 'Owner',
         emoji: ownerConfig.emoji || '👑',
         color: ownerConfig.color || '#10b981',
+        avatarUrl: ownerConfig.avatarUrl,
+        outfit: parseOutfit(ownerConfig.outfit),
         skinColor: ownerConfig.skinColor,
         shirtColor: ownerConfig.shirtColor || ownerConfig.color || '#10b981',
         hairColor: ownerConfig.hairColor,
@@ -636,8 +649,10 @@ function calculateAgentProgression(agentName: string): { xp: number; level: numb
  * Main API handler
  */
 export async function GET(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
+
+  const userId = (await getAuthenticatedUser(request))?.id;
 
   const now = Date.now();
 
@@ -651,7 +666,22 @@ export async function GET(request: Request) {
   const WC_GRACE_MS = 30_000; // ignore session activity within 30s of a watercooler call
 
   // Auto-discover agents
-  const agentConfigs = discoverAgents();
+  const agentConfigs = discoverAgents(userId);
+  if (userId) {
+    agentConfigs.push(...listAvatars(userId).map(avatar => ({
+      id: avatar.id,
+      userId: avatar.userId,
+      name: avatar.name,
+      role: avatar.role,
+      emoji: avatar.emoji,
+      color: avatar.color,
+      avatarUrl: avatar.avatarUrl,
+      outfit: avatar.outfit,
+      sessionKey: undefined,
+      hasIdentity: true,
+    })));
+  }
+  const controlState = userId ? readControlState(userId) : {};
   
   // Get next cron run times for cooldown timers
   const nextCronRuns = getNextCronRuns();
@@ -782,10 +812,16 @@ export async function GET(request: Request) {
 
     return {
       id: cfg.id,
+      userId: cfg.userId,
+      currentRoom: controlState[cfg.id]?.currentRoom || 'work_room',
+      controlStatus: controlState[cfg.id]?.controlStatus || 'autonomous',
+      capabilities: DEFAULT_CAPABILITIES,
       name: cfg.name,
       role: cfg.role,
       emoji: cfg.emoji,
       color: cfg.color,
+      avatarUrl: cfg.avatarUrl,
+      outfit: cfg.outfit || undefined,
       skinColor: cfg.skinColor,
       shirtColor: cfg.shirtColor || cfg.color,
       hairColor: cfg.hairColor,

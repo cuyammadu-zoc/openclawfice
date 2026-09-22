@@ -12,7 +12,7 @@ const OPENCLAW_CONFIG = join(OPENCLAW_DIR, 'openclaw.json');
  * Allows teams to version control, fork, diff, and merge configs.
  */
 export async function GET(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {

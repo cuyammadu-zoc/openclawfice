@@ -91,7 +91,7 @@ export async function GET() {
  */
 export async function POST(request: Request) {
   // Require auth for POST
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {

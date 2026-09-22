@@ -72,7 +72,7 @@ function addToChatLog(from: string, text: string): void {
  * POST endpoint to send messages to agents
  */
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {

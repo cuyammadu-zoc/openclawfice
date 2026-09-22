@@ -2,6 +2,45 @@
 
 export type AgentStatus = 'working' | 'idle';
 export type Mood = 'great' | 'good' | 'okay' | 'stressed';
+export type MilitaryBranch =
+  | 'army'
+  | 'navy'
+  | 'air_force'
+  | 'marines'
+  | 'coast_guard'
+  | 'space_force';
+export type OfficeRoomId = 'work_room' | 'meeting_room' | 'lounge' | 'focus_booth';
+export type AgentControlStatus = 'autonomous' | 'paused' | 'human_override';
+
+export interface FurnitureInteraction {
+  actionType: 'play_arcade' | 'drink_coffee' | 'rest_on_couch' | 'check_server';
+  occupantAgentId?: string;
+  durationMs: number;
+}
+
+export interface CreateAvatarInput {
+  name: string;
+  avatarUrl?: string;
+  outfit?: MilitaryBranch;
+  personalityPrompt?: string;
+  initialRoom?: OfficeRoomId;
+}
+
+export interface FurnitureItem {
+  id: string;
+  type: 'desk' | 'plant' | 'server_rack' | 'couch' | 'coffee_machine' | 'arcade_cabinet';
+  x: number;
+  y: number;
+  room: OfficeRoomId;
+  interaction?: FurnitureInteraction;
+}
+
+export interface OfficeLayoutConfig {
+  gridWidth: number;
+  gridHeight: number;
+  furniture: FurnitureItem[];
+  theme: 'classic' | 'cyberpunk' | 'military_hq' | 'retro_arcade';
+}
 
 export interface PendingAction {
   id: string;
@@ -32,6 +71,14 @@ export interface Skill {
   icon: string;
 }
 
+export interface AgentCapability {
+  id: string;
+  name: string;
+  category: 'development' | 'browsing' | 'terminal' | 'communication' | 'file_system';
+  status: 'enabled' | 'disabled' | 'restricted';
+  description: string;
+}
+
 export interface Needs {
   energy: number;
   output: number;
@@ -42,10 +89,15 @@ export interface Needs {
 
 export interface Agent {
   id: string;
+  userId?: string;
+  currentRoom?: OfficeRoomId;
+  controlStatus?: AgentControlStatus;
   name: string;
   role: string;
   emoji: string;
   color: string;
+  avatarUrl?: string;
+  outfit?: MilitaryBranch | string;
   skinColor?: string;
   shirtColor?: string;
   hairColor?: string;
@@ -53,6 +105,12 @@ export interface Agent {
   mood: Mood;
   task?: string;
   thought?: string;
+  currentMessage?: {
+    text: string;
+    timestamp: number;
+    durationMs: number;
+    type: 'thought' | 'speech' | 'command';
+  };
   lastActive?: string;
   nextTaskAt?: number;
   cooldown?: {
@@ -71,6 +129,7 @@ export interface Agent {
   };
   needs: Needs;
   skills: Skill[];
+  capabilities?: AgentCapability[];
   xp: number;
   level: number;
 }

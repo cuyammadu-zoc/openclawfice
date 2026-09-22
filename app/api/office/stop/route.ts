@@ -19,7 +19,7 @@ const STOP_COOLDOWN_MS = 10 * 60_000; // 10 min — agent stays idle after stop
  * Body: { agentId, pauseAutowork?: boolean }
  */
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {

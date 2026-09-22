@@ -3,7 +3,7 @@ import { gatewayRpc } from '@/lib/gateway-rpc';
 import { requireAuth } from '../../../../lib/auth';
 
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {

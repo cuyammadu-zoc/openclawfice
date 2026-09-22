@@ -13,6 +13,8 @@ import { randomColor, generateAgentDefaults, prettifyTask, formatInterval } from
 import { NPC } from '../components/NPC';
 import { Room } from '../components/Room';
 import { AgentPanel } from '../components/AgentPanel';
+import { AgentControlDrawer } from '../components/AgentControlDrawer';
+import { AddAvatarModal } from '../components/AddAvatarModal';
 import { SettingsPanel } from '../components/SettingsPanel';
 import { CooldownTimer, linkifyFiles, Stat } from '../components/CooldownTimer';
 import { TemplateGallery } from '../components/TemplateGallery';
@@ -130,6 +132,7 @@ export default function HomePage() {
   const [partyMode, setPartyMode] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [agentCardAgent, setAgentCardAgent] = useState<Agent | null>(null);
+  const [showAddAvatar, setShowAddAvatar] = useState(false);
   const [agentChatBubbles, setAgentChatBubbles] = useState<Record<string, { message: string; timestamp: number; color: string }>>({});
   const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
   const konamiProgress = useRef<string[]>([]);
@@ -1114,6 +1117,13 @@ export default function HomePage() {
           <Stat icon="☕" n={idle.length} />
           {pendingActions.length > 0 && <Stat icon="⚔️" n={pendingActions.length} />}
           <Clock color={theme.textDim} />
+          <button
+            onClick={() => { sfx.play('open'); setShowAddAvatar(true); }}
+            style={{ background: '#2563eb', border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer', padding: '6px 9px', fontSize: 11, fontWeight: 700 }}
+            title="Add Character"
+          >
+            + Add Character
+          </button>
           <button
             onClick={() => { sfx.play('open'); setShowCallMeeting(true); }}
             style={{
@@ -2848,6 +2858,39 @@ export default function HomePage() {
       />
       {selectedAgent && (
         <>
+          <AgentControlDrawer
+            agent={selectedAgent}
+            onClose={() => { sfx.play('close'); setSelectedAgent(null); }}
+            onPause={(agentId, paused) => {
+              const controlStatus = paused ? 'paused' : 'autonomous';
+              void secureFetch('/api/office/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId, controlStatus }),
+              });
+              setAgents(prev => prev.map(a => a.id === agentId ? { ...a, controlStatus } : a));
+              setSelectedAgent(prev => prev && prev.id === agentId ? { ...prev, controlStatus } : prev);
+            }}
+            onChangeRoom={(agentId, currentRoom) => {
+              void secureFetch('/api/office/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId, currentRoom, controlStatus: 'human_override' }),
+              });
+              setAgents(prev => prev.map(a => a.id === agentId ? { ...a, currentRoom, controlStatus: 'human_override' } : a));
+              setSelectedAgent(prev => prev && prev.id === agentId ? { ...prev, currentRoom, controlStatus: 'human_override' } : prev);
+            }}
+            onSendCommand={async (agentId, command) => {
+              const response = await secureFetch('/api/office/message', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId, message: command }),
+              });
+              if (!response.ok) throw new Error('Failed to send command');
+              setAgents(prev => prev.map(a => a.id === agentId ? { ...a, controlStatus: 'human_override' } : a));
+              setSelectedAgent(prev => prev && prev.id === agentId ? { ...prev, controlStatus: 'human_override' } : prev);
+            }}
+          />
           <AgentPanel
             agent={selectedAgent}
             onClose={() => { sfx.play('close'); setSelectedAgent(null); }}
@@ -2873,6 +2916,15 @@ export default function HomePage() {
             }}
           />
         </>
+      )}
+      {showAddAvatar && (
+        <AddAvatarModal
+          onClose={() => setShowAddAvatar(false)}
+          onCreated={(created) => {
+            const agent = created as Agent;
+            setAgents(previous => [...previous, agent]);
+          }}
+        />
       )}
 
       {/* Settings Panel */}

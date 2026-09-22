@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Agent, Mood } from './types';
+import { OUTFITS, parseOutfit } from '../config/outfits';
+import { beginFurnitureInteraction, findAvailableFurniture, getFurnitureActionMessage } from '../lib/furniture-interactions';
+import type { FurnitureItem } from './types';
 import { Celebration } from './Celebration';
 import { NPCParticles } from './NPCParticles';
 import { randomColor, getQuirkyMoodMessage } from './utils';
@@ -118,6 +121,54 @@ function NpcAccessory({ accessory, s, shirtColor }: { accessory: Accessory; s: n
   }
 }
 
+function MilitaryOutfitOverlay({ outfit, s }: { outfit: string; s: number }) {
+  const branch = parseOutfit(outfit);
+  if (!branch) return null;
+
+  const config = OUTFITS[branch];
+  return (
+    <div
+      className={config.overlayClassName}
+      title={config.title}
+      style={{
+        position: 'absolute',
+        top: s * 4.5,
+        left: 0,
+        width: s * 8,
+        height: s * 4,
+        pointerEvents: 'none',
+        imageRendering: 'pixelated',
+      }}
+    >
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: config.themeColor,
+        border: `${Math.max(1, s * 0.25)}px solid ${config.borderColor}`,
+        borderRadius: `${s * 0.5}px ${s * 0.5}px ${s}px ${s}px`,
+        opacity: 0.92,
+      }} />
+      <div style={{
+        position: 'absolute',
+        top: s * 0.8,
+        left: s * 3,
+        width: s * 2,
+        height: s * 1.4,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: config.borderColor,
+        fontSize: s * 0.9,
+        fontWeight: 800,
+        lineHeight: 1,
+        textShadow: `0 0 ${s * 0.2}px ${config.borderColor}`,
+      }}>
+        {branch === 'space_force' ? '✦' : branch === 'air_force' ? '✈' : '★'}
+      </div>
+    </div>
+  );
+}
+
 // === Plumbob (Mood Diamond) ===
 
 function Plumbob({ mood, agent }: { mood: Mood; agent?: Agent }) {
@@ -160,7 +211,7 @@ function Plumbob({ mood, agent }: { mood: Mood; agent?: Agent }) {
 
 // === Main NPC Component ===
 
-export function NPC({ agent, size = 1, onClick, forceThought, flipped, hasCelebration, partyMode }: {
+export function NPC({ agent, size = 1, onClick, forceThought, flipped, hasCelebration, partyMode, furniture, onFurnitureInteraction }: {
   agent: Agent;
   size?: number;
   onClick?: () => void;
@@ -168,10 +219,14 @@ export function NPC({ agent, size = 1, onClick, forceThought, flipped, hasCelebr
   flipped?: boolean;
   hasCelebration?: boolean;
   partyMode?: boolean;
+  furniture?: FurnitureItem[];
+  onFurnitureInteraction?: (furnitureId: string, interaction: FurnitureItem['interaction']) => void;
 }) {
   const s = 4 * size;
   const displayThought = forceThought || agent.thought;
   const [showThought, setShowThought] = useState(!!displayThought);
+  const [messageVisible, setMessageVisible] = useState(false);
+  const [interactionMessage, setInteractionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!displayThought) {
@@ -183,11 +238,45 @@ export function NPC({ agent, size = 1, onClick, forceThought, flipped, hasCelebr
     return () => clearTimeout(hideTimer);
   }, [displayThought]);
 
+  useEffect(() => {
+    const message = agent.currentMessage;
+    if (!message) {
+      setMessageVisible(false);
+      return;
+    }
+
+    const remaining = message.timestamp + message.durationMs - Date.now();
+    if (remaining <= 0) {
+      setMessageVisible(false);
+      return;
+    }
+
+    setMessageVisible(true);
+    const hideTimer = setTimeout(() => setMessageVisible(false), remaining);
+    return () => clearTimeout(hideTimer);
+  }, [agent.currentMessage?.text, agent.currentMessage?.timestamp, agent.currentMessage?.durationMs]);
+
+  useEffect(() => {
+    if (agent.status !== 'idle' || !furniture?.length || !agent.currentRoom) return;
+    const target = findAvailableFurniture(furniture, agent.currentRoom);
+    if (!target) return;
+    const interaction = beginFurnitureInteraction(target, agent.id);
+    if (!interaction) return;
+    onFurnitureInteraction?.(target.id, interaction);
+    setInteractionMessage(getFurnitureActionMessage(interaction));
+    const releaseTimer = setTimeout(() => {
+      onFurnitureInteraction?.(target.id, undefined);
+      setInteractionMessage(null);
+    }, interaction.durationMs);
+    return () => clearTimeout(releaseTimer);
+  }, [agent.id, agent.status, agent.currentRoom, furniture, onFurnitureInteraction]);
+
   const traits = getNpcTraits(agent.id);
   const skinColor = agent.skinColor || traits.skinColor;
   const shirtColor = agent.shirtColor || agent.color || randomColor(agent.id);
   const hairColor = agent.hairColor || traits.hairColor;
   const pantsColor = traits.pantsColor;
+  const outfit = agent.outfit ? parseOutfit(agent.outfit) : null;
 
   return (
     <div
@@ -230,6 +319,35 @@ export function NPC({ agent, size = 1, onClick, forceThought, flipped, hasCelebr
           {displayThought}
         </div>
       )}
+      {messageVisible && agent.currentMessage && (
+        <div
+          role="status"
+          data-message-type={agent.currentMessage.type}
+          style={{
+            position: 'relative',
+            background: '#fff7d6',
+            color: '#1a1a2e',
+            border: '2px solid #1a1a2e',
+            padding: '5px 9px',
+            borderRadius: 3,
+            fontSize: 9 * size,
+            maxWidth: 190 * size,
+            textAlign: 'center',
+            animation: 'speechBubbleIn 0.2s ease-out',
+            marginBottom: 4,
+            boxShadow: '3px 3px 0 rgba(0,0,0,0.35)',
+            lineHeight: 1.3,
+            imageRendering: 'pixelated',
+          }}
+        >
+          {agent.currentMessage.text}
+        </div>
+      )}
+      {interactionMessage && (
+        <div role="status" data-furniture-action="true" style={{ background: '#fff7d6', color: '#1a1a2e', border: '2px solid #1a1a2e', padding: '5px 9px', borderRadius: 3, fontSize: 9 * size, maxWidth: 190 * size, textAlign: 'center', marginBottom: 4, boxShadow: '3px 3px 0 rgba(0,0,0,0.35)', imageRendering: 'pixelated' }}>
+          {interactionMessage}
+        </div>
+      )}
       {hasCelebration && <Celebration />}
       <Plumbob mood={agent.mood} agent={agent} />
       <div style={{ position: 'relative', width: s * 8, height: s * 10 }}>
@@ -248,6 +366,14 @@ export function NPC({ agent, size = 1, onClick, forceThought, flipped, hasCelebr
           animation: partyMode ? 'npcPartyJump 0.5s ease-in-out infinite' : 'npcBob 2s ease-in-out infinite',
           ...(flipped ? { transform: 'scaleX(-1)' } : {}),
         }}>
+        {agent.avatarUrl ? (
+          <img
+            src={agent.avatarUrl}
+            alt={`${agent.name} avatar`}
+            className="h-full w-full rounded-lg object-cover"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        ) : (<>
         {/* Hair */}
         <NpcHair style={traits.hairStyle} s={s} hairColor={hairColor} />
         {/* Head */}
@@ -539,6 +665,8 @@ export function NPC({ agent, size = 1, onClick, forceThought, flipped, hasCelebr
           background: pantsColor,
           borderRadius: `0 0 ${s * 0.4}px ${s * 0.4}px`,
         }} />
+        {outfit && <MilitaryOutfitOverlay outfit={outfit} s={s} />}
+        </>)}
         </div>
       </div>
       <div style={{

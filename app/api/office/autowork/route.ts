@@ -13,7 +13,7 @@ const MAX_SENDS_PER_TICK = 2;
  * GET — return all auto-work policies, config, and current mission
  */
 export async function GET(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   const config = readConfig();
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
  * Body: { agentId, enabled?, intervalMs?, directive?, maxSendsPerTick? }
  */
 export async function POST(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
  * Body: { agentId? } — if omitted, runs one normal tick cycle.
  */
 export async function PUT(request: Request) {
-  const authError = requireAuth(request);
+  const authError = await requireAuth(request);
   if (authError) return authError;
 
   try {
